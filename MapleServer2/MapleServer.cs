@@ -16,6 +16,7 @@ using MapleServer2.Types;
 using Newtonsoft.Json;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.Discord;
 using Serilog.Templates;
 using Serilog.Templates.Themes;
 using Path = System.IO.Path;
@@ -39,14 +40,6 @@ public static class MapleServer
                                              "{#if SourceContext is not null} {Substring(SourceContext, LastIndexOf(SourceContext, '.') + 1)}:{#end} {@m}\n{@x}";
         const string FileOutputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level}] {SourceContext:l}: {Message:lj}{NewLine}{Exception}";
 
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Debug()
-            .WriteTo.Console(new ExpressionTemplate(ConsoleOutputTemplate, theme: TemplateTheme.Code))
-            .WriteTo.File($"{Paths.SOLUTION_DIR}/Logs/MapleServer2/LOG-.txt",
-                rollingInterval: RollingInterval.Day, outputTemplate: FileOutputTemplate, restrictedToMinimumLevel: LogEventLevel.Information)
-            .CreateLogger();
-
-        _logger = Log.Logger.ForContext(typeof(MapleServer));
 
         AppDomain currentDomain = AppDomain.CurrentDomain;
         currentDomain.UnhandledException += UnhandledExceptionEventHandler;
@@ -64,6 +57,17 @@ public static class MapleServer
         }
 
         DotEnv.Load(dotenv);
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.Discord(ulong.Parse(Environment.GetEnvironmentVariable("WEBHOOK_ID")), Environment.GetEnvironmentVariable("WEBHOOK_TOKEN"),
+                restrictedToMinimumLevel: LogEventLevel.Error)
+            .WriteTo.Console(new ExpressionTemplate(ConsoleOutputTemplate, theme: TemplateTheme.Code))
+            .WriteTo.File($"{Paths.SOLUTION_DIR}/Logs/MapleServer2/LOG-.txt",
+                rollingInterval: RollingInterval.Day, outputTemplate: FileOutputTemplate, restrictedToMinimumLevel: LogEventLevel.Information)
+            .CreateLogger();
+
+        _logger = Log.Logger.ForContext(typeof(MapleServer));
 
         DatabaseManager.Init();
 
